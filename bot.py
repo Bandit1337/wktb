@@ -9,26 +9,21 @@ import os
 API_TOKEN = os.getenv("API_TOKEN")
 AUTHORIZED_USERS = list(map(int, os.getenv("AUTHORIZED_IDS", "").split(",")))
 
-# Настройки
 WORK_START = datetime.strptime("08:30:00", "%H:%M:%S").time()
 WORK_DURATION = timedelta(hours=8, minutes=30)
 MAX_OVERTIME = timedelta(hours=4)
 
-# Инициализация
 logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Кнопки
 keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
 keyboard.add(KeyboardButton("✅ Я на предприятии"))
 keyboard.add(KeyboardButton("🏖️ Сегодня отпуск"))
 
-# Проверка доступа
 def is_authorized(user_id):
     return user_id in AUTHORIZED_USERS
 
-# Инициализация БД
 def init_db():
     conn = sqlite3.connect("data.sqlite")
     cur = conn.cursor()
@@ -78,8 +73,10 @@ async def handle_entry(message: types.Message):
     conn.close()
 
     await message.answer(
-        "👋 Добро пожаловать, {}!"
-        "⏰ Вход зафиксирован: <b>{}</b>"
+        "👋 Добро пожаловать, {}!
+"
+        "⏰ Вход зафиксирован: <b>{}</b>
+"
         "🕔 Планируемый выход: <b>{}</b>".format(
             message.from_user.first_name,
             entry_time.strftime('%H:%M:%S'),
@@ -123,18 +120,24 @@ async def handle_month(message: types.Message):
         await message.answer("Нет записей за текущий месяц.")
         return
 
-report = "📅 Отчёт за {}\n".format(now.strftime("%B %Y"))
-total_days = 0
-total_vac = 0
+    report = "📅 Отчёт за {}
+".format(now.strftime("%B %Y"))
+    total_days = 0
+    total_vac = 0
 
-for row in rows:
-    day = date.fromisoformat(row[0]).strftime("%d.%m")
-    if row[2] == 1:
-        report += f"{day} — 🏖️ Отпуск\n"
-        total_vac += 1
-    else:
-        report += f"{day} — 🔘 Вход: {row[1]}\n"
-        total_days += 1
+    for row in rows:
+        day = date.fromisoformat(row[0]).strftime("%d.%m")
+        if row[2] == 1:
+            report += f"{day} — 🏖️ Отпуск
+"
+            total_vac += 1
+        else:
+            report += f"{day} — 🔘 Вход: {row[1]}
+"
+            total_days += 1
 
-report += f"\n📊 Рабочих дней: {total_days} | Отпускных: {total_vac}"
-await message.answer(report)
+    report += f"\n📊 Рабочих дней: {total_days} | Отпускных: {total_vac}"
+    await message.answer(report)
+
+if __name__ == '__main__':
+    executor.start_polling(dp, skip_updates=True)
