@@ -17,13 +17,25 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-keyboard = ReplyKeyboardMarkup(resize_keyboard=True)
-keyboard.add(KeyboardButton("✅ Я на предприятии"))
-keyboard.add(KeyboardButton("🏖️ Сегодня отпуск"))
+# Главное меню
+main_menu = ReplyKeyboardMarkup(resize_keyboard=True)
+main_menu.add(KeyboardButton("✅ Я на предприятии"))
+main_menu.add(KeyboardButton("📋 Больше функций"))
 
+# Меню "Больше функций"
+more_menu = ReplyKeyboardMarkup(resize_keyboard=True)
+more_menu.add(KeyboardButton("📆 Отчёт за месяц"), KeyboardButton("🏖️ Отпуск"))
+more_menu.add(KeyboardButton("⬅️ Назад"))
+
+# Кнопка отмены
+cancel_menu = ReplyKeyboardMarkup(resize_keyboard=True)
+cancel_menu.add(KeyboardButton("❌ Отмена"))
+
+# Авторизация
 def is_authorized(user_id):
     return user_id in AUTHORIZED_USERS
 
+# База данных
 def init_db():
     conn = sqlite3.connect("data.sqlite")
     cur = conn.cursor()
@@ -41,11 +53,11 @@ def init_db():
 init_db()
 
 @dp.message_handler(commands=['start'])
-async def send_welcome(message: types.Message):
+async def start_handler(message: types.Message):
     if not is_authorized(message.from_user.id):
         await message.answer("⛔ У вас нет доступа к этому боту.")
         return
-    await message.answer("Привет! Нажми кнопку, когда зайдёшь на предприятие.", reply_markup=keyboard)
+    await message.answer("Добро пожаловать! Выберите действие:", reply_markup=main_menu)
 
 @dp.message_handler(lambda m: m.text == "✅ Я на предприятии")
 async def handle_entry(message: types.Message):
@@ -73,8 +85,8 @@ async def handle_entry(message: types.Message):
     conn.close()
 
     await message.answer(
-        "👋 Добро пожаловать, {}!"
-        "⏰ Вход зафиксирован: <b>{}</b>"
+        "👋 Добро пожаловать, {}!\n"
+        "⏰ Вход зафиксирован: <b>{}</b>\n"
         "🕔 Планируемый выход: <b>{}</b>".format(
             message.from_user.first_name,
             entry_time.strftime('%H:%M:%S'),
@@ -83,56 +95,43 @@ async def handle_entry(message: types.Message):
         parse_mode="HTML"
     )
 
-@dp.message_handler(lambda m: m.text == "🏖️ Сегодня отпуск")
-async def handle_vacation(message: types.Message):
-    if not is_authorized(message.from_user.id):
-        await message.answer("⛔ У вас нет доступа к этому боту.")
-        return
+@dp.message_handler(lambda m: m.text == "📋 Больше функций")
+async def more_menu_handler(message: types.Message):
+    await message.answer("Дополнительные функции:", reply_markup=more_menu)
 
-    today = datetime.now().date()
-    conn = sqlite3.connect("data.sqlite")
-    cur = conn.cursor()
-    cur.execute("INSERT INTO records (user_id, username, date, vacation) VALUES (?, ?, ?, 1)",
-                (message.from_user.id, message.from_user.username, today.isoformat()))
-    conn.commit()
-    conn.close()
-    await message.answer(f"🏖️ Отпуск на {today.strftime('%d.%m.%Y')} зарегистрирован!")
+@dp.message_handler(lambda m: m.text == "⬅️ Назад")
+async def back_to_main(message: types.Message):
+    await message.answer("Вы вернулись в главное меню.", reply_markup=main_menu)
 
-@dp.message_handler(commands=['месяц'])
-async def handle_month(message: types.Message):
-    if not is_authorized(message.from_user.id):
-        await message.answer("⛔ У вас нет доступа к этому боту.")
-        return
+@dp.message_handler(lambda m: m.text == "🏖️ Отпуск")
+async def vacation_request(message: types.Message):
+    await message.answer(
+        "Введите период отпуска (например: 01.07–05.07)\n\n"
+        "❗ Или нажмите ❌ Отмена",
+        reply_markup=cancel_menu
+    )
 
+@dp.message_handler(lambda m: m.text == "📆 Отчёт за месяц")
+async def choose_month(message: types.Message):
+    markup = ReplyKeyboardMarkup(resize_keyboard=True)
     now = datetime.now()
-    month_start = now.replace(day=1).date()
+    months = []
+    for i in range(3):
+        m = now.month - i
+        y = now.year
+        if m <= 0:
+            m += 12
+            y -= 1
+        months.append((m, y))
+    for m, y in months:
+        label = date(y, m, 1).strftime("%B %Y")
+        markup.add(KeyboardButton(label))
+    markup.add(KeyboardButton("❌ Отмена"))
+    await message.answer("Выберите месяц для отчёта:", reply_markup=markup)
 
-    conn = sqlite3.connect("data.sqlite")
-    cur = conn.cursor()
-    cur.execute("SELECT date, entry_time, vacation FROM records WHERE user_id = ? AND date >= ? ORDER BY date",
-                (message.from_user.id, month_start.isoformat()))
-    rows = cur.fetchall()
-    conn.close()
-
-    if not rows:
-        await message.answer("Нет записей за текущий месяц.")
-        return
-
-    report = "📅 Отчёт за {}\n".format(now.strftime("%B %Y"))
-    total_days = 0
-    total_vac = 0
-
-    for row in rows:
-        day = date.fromisoformat(row[0]).strftime("%d.%m")
-        if row[2] == 1:
-            report += f"{day} — 🏖️ Отпуск\n"
-            total_vac += 1
-        else:
-            report += f"{day} — 🔘 Вход: {row[1]}"
-            total_days += 1
-
-    report += f"\n📊 Рабочих дней: {total_days} | Отпускных: {total_vac}"
-    await message.answer(report)
+@dp.message_handler(lambda m: m.text == "❌ Отмена")
+async def cancel_handler(message: types.Message):
+    await message.answer("Действие отменено.", reply_markup=more_menu)
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
