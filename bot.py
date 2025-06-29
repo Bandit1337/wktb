@@ -78,10 +78,8 @@ async def handle_entry(message: types.Message):
     conn.close()
 
     await message.answer(
-        "👋 Добро пожаловать, {}!
-"
-        "⏰ Вход зафиксирован: <b>{}</b>
-"
+        "👋 Добро пожаловать, {}!"
+        "⏰ Вход зафиксирован: <b>{}</b>"
         "🕔 Планируемый выход: <b>{}</b>".format(
             message.from_user.first_name,
             entry_time.strftime('%H:%M:%S'),
