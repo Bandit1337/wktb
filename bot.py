@@ -123,23 +123,18 @@ async def handle_month(message: types.Message):
         await message.answer("Нет записей за текущий месяц.")
         return
 
-    report = "📅 Отчёт за {}
-".format(now.strftime("%B %Y"))
-    total_days = 0
-    total_vac = 0
-    for row in rows:
-        day = date.fromisoformat(row[0]).strftime("%d.%m")
-        if row[2] == 1:
-            report += f"{day} — 🏖️ Отпуск
-"
-            total_vac += 1
-        else:
-            report += f"{day} — 🔘 Вход: {row[1]}
-"
-            total_days += 1
-    report += f"
-📊 Рабочих дней: {total_days} | Отпускных: {total_vac}"
-    await message.answer(report)
+report = "📅 Отчёт за {}\n".format(now.strftime("%B %Y"))
+total_days = 0
+total_vac = 0
 
-if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+for row in rows:
+    day = date.fromisoformat(row[0]).strftime("%d.%m")
+    if row[2] == 1:
+        report += f"{day} — 🏖️ Отпуск\n"
+        total_vac += 1
+    else:
+        report += f"{day} — 🔘 Вход: {row[1]}\n"
+        total_days += 1
+
+report += f"\n📊 Рабочих дней: {total_days} | Отпускных: {total_vac}"
+await message.answer(report)
