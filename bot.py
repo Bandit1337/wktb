@@ -5,6 +5,13 @@ from aiogram.types import ReplyKeyboardMarkup, KeyboardButton
 from datetime import datetime, timedelta, date
 import sqlite3
 import os
+import locale
+
+# Принудительно русская локаль для отображения месяцев
+try:
+    locale.setlocale(locale.LC_TIME, 'ru_RU.UTF-8')
+except:
+    pass  # Railway может не поддерживать локаль, тогда вручную подставим месяцы
 
 API_TOKEN = os.getenv("API_TOKEN")
 AUTHORIZED_USERS = list(map(int, os.getenv("AUTHORIZED_IDS", "").split(",")))
@@ -17,25 +24,26 @@ logging.basicConfig(level=logging.INFO)
 bot = Bot(token=API_TOKEN)
 dp = Dispatcher(bot)
 
-# Главное меню
 main_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 main_menu.add(KeyboardButton("✅ Я на предприятии"))
 main_menu.add(KeyboardButton("📋 Больше функций"))
 
-# Меню "Больше функций"
 more_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 more_menu.add(KeyboardButton("📆 Отчёт за месяц"), KeyboardButton("🏖️ Отпуск"))
 more_menu.add(KeyboardButton("⬅️ Назад"))
 
-# Кнопка отмены
 cancel_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 cancel_menu.add(KeyboardButton("❌ Отмена"))
 
-# Авторизация
+MONTH_NAMES = {
+    1: "📅 Январь", 2: "📅 Февраль", 3: "📅 Март", 4: "📅 Апрель",
+    5: "📅 Май", 6: "📅 Июнь", 7: "📅 Июль", 8: "📅 Август",
+    9: "📅 Сентябрь", 10: "📅 Октябрь", 11: "📅 Ноябрь", 12: "📅 Декабрь"
+}
+
 def is_authorized(user_id):
     return user_id in AUTHORIZED_USERS
 
-# База данных
 def init_db():
     conn = sqlite3.connect("data.sqlite")
     cur = conn.cursor()
@@ -57,7 +65,7 @@ async def start_handler(message: types.Message):
     if not is_authorized(message.from_user.id):
         await message.answer("⛔ У вас нет доступа к этому боту.")
         return
-    await message.answer("Добро пожаловать! Выберите действие:", reply_markup=main_menu)
+    await message.answer("Выберите действие:", reply_markup=main_menu)
 
 @dp.message_handler(lambda m: m.text == "✅ Я на предприятии")
 async def handle_entry(message: types.Message):
@@ -85,10 +93,9 @@ async def handle_entry(message: types.Message):
     conn.close()
 
     await message.answer(
-        "👋 Добро пожаловать, {}!\n"
+        "🚪 Вход зарегистрирован!\n"
         "⏰ Вход зафиксирован: <b>{}</b>\n"
         "🕔 Планируемый выход: <b>{}</b>".format(
-            message.from_user.first_name,
             entry_time.strftime('%H:%M:%S'),
             end_time.strftime('%H:%M:%S')
         ),
@@ -106,8 +113,7 @@ async def back_to_main(message: types.Message):
 @dp.message_handler(lambda m: m.text == "🏖️ Отпуск")
 async def vacation_request(message: types.Message):
     await message.answer(
-        "Введите период отпуска (например: 01.07–05.07)\n\n"
-        "❗ Или нажмите ❌ Отмена",
+        "Введите период отпуска:\nнапример: 01.07–05.07",
         reply_markup=cancel_menu
     )
 
@@ -124,7 +130,7 @@ async def choose_month(message: types.Message):
             y -= 1
         months.append((m, y))
     for m, y in months:
-        label = date(y, m, 1).strftime("%B %Y")
+        label = MONTH_NAMES.get(m, f"{m}")  # emoji название месяца
         markup.add(KeyboardButton(label))
     markup.add(KeyboardButton("❌ Отмена"))
     await message.answer("Выберите месяц для отчёта:", reply_markup=markup)
