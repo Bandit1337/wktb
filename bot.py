@@ -73,10 +73,8 @@ async def handle_entry(message: types.Message):
     conn.close()
 
     await message.answer(
-        "👋 Добро пожаловать, {}!
-"
-        "⏰ Вход зафиксирован: <b>{}</b>
-"
+        "👋 Добро пожаловать, {}!"
+        "⏰ Вход зафиксирован: <b>{}</b>"
         "🕔 Планируемый выход: <b>{}</b>".format(
             message.from_user.first_name,
             entry_time.strftime('%H:%M:%S'),
@@ -120,20 +118,17 @@ async def handle_month(message: types.Message):
         await message.answer("Нет записей за текущий месяц.")
         return
 
-    report = "📅 Отчёт за {}
-".format(now.strftime("%B %Y"))
+    report = "📅 Отчёт за {}\n".format(now.strftime("%B %Y"))
     total_days = 0
     total_vac = 0
 
     for row in rows:
         day = date.fromisoformat(row[0]).strftime("%d.%m")
         if row[2] == 1:
-            report += f"{day} — 🏖️ Отпуск
-"
+            report += f"{day} — 🏖️ Отпуск\n"
             total_vac += 1
         else:
-            report += f"{day} — 🔘 Вход: {row[1]}
-"
+            report += f"{day} — 🔘 Вход: {row[1]}"
             total_days += 1
 
     report += f"\n📊 Рабочих дней: {total_days} | Отпускных: {total_vac}"
