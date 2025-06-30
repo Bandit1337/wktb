@@ -1,4 +1,5 @@
 import asyncio
+import locale
 import logging
 import sqlite3
 import os
@@ -28,6 +29,7 @@ def get_main_menu(on_shift):
 more_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 more_menu.add(KeyboardButton("📊 Отчёт"), KeyboardButton("🏖️ Отпуск"))
 more_menu.add(KeyboardButton("⚙️ Изменить смену"), KeyboardButton("📈 Аналитика"))
+more_menu.add(KeyboardButton("📦 Бэкап сейчас"))
 more_menu.add(KeyboardButton("⬅️ Назад"))
 
 cancel_menu = ReplyKeyboardMarkup(resize_keyboard=True)
@@ -36,6 +38,12 @@ cancel_menu.add(KeyboardButton("❌ Отмена"))
 report_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 report_menu.add(KeyboardButton("🗓️ За неделю"), KeyboardButton("📅 За месяц"))
 report_menu.add(KeyboardButton("❌ Отмена"))
+
+MONTHS_RU = {
+    "January": "Январь", "February": "Февраль", "March": "Март", "April": "Апрель",
+    "May": "Май", "June": "Июнь", "July": "Июль", "August": "Август",
+    "September": "Сентябрь", "October": "Октябрь", "November": "Ноябрь", "December": "Декабрь"
+}
 
 # Смены с параметрами: (start_time, duration, is_evening)
 SHIFTS = {
@@ -208,7 +216,7 @@ async def handle_entry(message: types.Message):
     work_minutes = int(shift['duration'] * 60)
     planned_exit = actual_entry + timedelta(minutes=work_minutes)
     await message.answer(
-        f"{debt_str}🚪 Вход зарегистрирован!\n⏰ Вход: {now_str}\n🕔 Плановый выход: {planned_exit.strftime('%H:%M')}",
+        f"{debt_str}🚪 Вход зарегистрирован!\n⏰ Вход: {now_str}\n🕔 Плановый выход: {planned_exit.strftime('%H:%M:%S')}",
         reply_markup=get_main_menu(True)
     )
 
@@ -527,7 +535,7 @@ async def analytics_handler(message: types.Message):
     exit_time = f"{avg_exit // 60:02}:{avg_exit % 60:02}" if avg_exit else "—"
 
     report = (
-        f"📈 *Аналитика за {now.strftime('%B')}*\n\n"
+        f"📈 *Аналитика за {MONTH_NAMES[now.month]}*\n\n"
         f"🔘 Смен: {total_days}\n"
         f"⏰ Средняя длительность: {avg_minutes // 60} ч {avg_minutes % 60} мин\n"
         f"🚪 Средний вход: {entry_time}\n"
@@ -537,6 +545,18 @@ async def analytics_handler(message: types.Message):
     )
 
     await message.answer(report, parse_mode="Markdown")
+
+@dp.message_handler(lambda m: m.text == "📦 Бэкап сейчас")
+async def manual_backup(message: types.Message):
+    if message.from_user.id != OWNER_ID:
+        await message.answer("⛔ Только админ может получить бэкап.")
+        return
+
+    try:
+        with open("data.sqlite", "rb") as f:
+            await bot.send_document(message.from_user.id, InputFile(f, filename="data.sqlite"))
+    except Exception as e:
+        await message.answer(f"⚠️ Ошибка при отправке бэкапа: {e}")
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
