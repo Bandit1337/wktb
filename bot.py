@@ -20,7 +20,7 @@ def main_menu(on_shift: bool):
     if on_shift:
         kb.add(KeyboardButton("🏁 Завершить день"))
     else:
-        kb.add(KeyboardButton("✅ Я на предприятии"))
+        kb.add(KeyboardButton("✅ Я на предприятию"))
     kb.add(KeyboardButton("📋 Больше функций"))
     return kb
 
@@ -31,13 +31,16 @@ more_menu.add(
     KeyboardButton("⚙️ Изменить смену"),
     KeyboardButton("⬅️ Назад")
 )
+
 cancel_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 cancel_menu.add(KeyboardButton("❌ Отмена"))
+
 shift_type_kb = ReplyKeyboardMarkup(resize_keyboard=True)
 shift_type_kb.add(
     KeyboardButton("🕗 Утренняя"),
     KeyboardButton("🌙 Вечерняя")
 )
+
 shift_time_kb = {
     '🕗 Утренняя': ReplyKeyboardMarkup(resize_keyboard=True).add(
         KeyboardButton("07:30"), KeyboardButton("08:30")
@@ -46,6 +49,7 @@ shift_time_kb = {
         KeyboardButton("15:00"), KeyboardButton("16:00")
     )
 }
+
 report_kb = ReplyKeyboardMarkup(resize_keyboard=True)
 report_kb.add(
     KeyboardButton("🗓️ За неделю"),
@@ -91,7 +95,7 @@ def get_current_shift(user_id: int):
     )
     row = cur.fetchone()
     conn.close()
-    return row  # (type, time)
+    return row
 
 
 def check_on_shift(user_id: int) -> bool:
@@ -154,8 +158,7 @@ def calculate_debt(user_id: int) -> timedelta:
     for et, xt, vac in rows:
         if vac: continue
         entry = datetime.strptime(et, "%H:%M")
-        if not xt:
-            continue
+        if not xt: continue
         exit_t = datetime.strptime(xt, "%H:%M")
         worked = exit_t - entry
         shift = get_current_shift(user_id)
@@ -214,9 +217,11 @@ async def do_entry(m: types.Message):
     conn.commit(); conn.close()
     planned = calculate_end(uid, now)
     debt = calculate_debt(uid)
-    text = f"🚪 Из: {now.strftime('%H:%M')} до: {planned.strftime('%H:%M')}"
+    text = (f"🚪 Вход зарегистрирован!\n"
+            f"⏰ Вход зафиксирован: {now.strftime('%H:%M')}\n"
+            f"🕔 Планируемый выход: {planned.strftime('%H:%M')}")
     if debt>timedelta(0):
-        text = f"📉 У тебя недоработка: {format_delta(debt)}\n" + text
+        text = f"📉 У тебя есть недоработка: {format_delta(debt)}\n" + text
     await m.answer(text, reply_markup=main_menu(True))
 
 @dp.message_handler(lambda m: m.text=='🏁 Завершить день')
@@ -231,7 +236,8 @@ async def do_exit(m: types.Message):
     await m.answer(f"🏁 Выход: {now.strftime('%H:%M')}", reply_markup=main_menu(False))
 
 @dp.message_handler(lambda m: m.text=='📋 Больше функций')
-async def more_funcs(m: types.Message): await m.answer("Дополнительные функции:", reply_markup=more_menu)
+async def more_funcs(m: types.Message):
+    await m.answer("Дополнительные функции:", reply_markup=more_menu)
 
 @dp.message_handler(lambda m: m.text=='⚙️ Изменить смену')
 async def change_shift(m: types.Message):
@@ -243,20 +249,26 @@ async def vacation(m: types.Message):
     user_states[m.from_user.id] = 'vacation'
     await m.answer("Введите период отпуска (дд.мм–дд.мм):", reply_markup=cancel_menu)
 
+@dp.message_handler(lambda m: m.text=='⬅️ Назад')
+async def go_back(m: types.Message):
+    state = user_states.pop(m.from_user.id, None)
+    await m.answer("Вы вернулись назад", reply_markup=more_menu if state else main_menu(check_on_shift(m.from_user.id)))
+
+@dp.message_handler(lambda m: m.text=='❌ Отмена')
+async def cancel(m: types.Message):
+    state = user_states.pop(m.from_user.id, None)
+    await m.answer("Действие отменено", reply_markup=more_menu if state=='vacation' else main_menu(check_on_shift(m.from_user.id)))
+
 @dp.message_handler(lambda m: user_states.get(m.from_user.id)=='vacation')
 async def set_vacation(m: types.Message):
     text = m.text.strip()
-    if text.lower()=='❌ отмена':
-        user_states.pop(m.from_user.id, None)
-        return await m.answer("Отпуск отменён.", reply_markup=more_menu)
     try:
         start_s, end_s = text.split('–')
-        start = datetime.strptime(start_s, '%d.%m').replace(year=date.today().year)
-        end = datetime.strptime(end_s, '%d.%m').replace(year=date.today().year)
-        days = (end.date() - start.date()).days + 1
+        start = datetime.strptime(start_s, '%d.%m').date().replace(year=date.today().year)
+        end = datetime.strptime(end_s, '%d.%m').date().replace(year=date.today().year)
         conn = sqlite3.connect("data.sqlite"); cur = conn.cursor()
-        for i in range(days):
-            d = (start + timedelta(days=i)).date().isoformat()
+        for i in range((end - start).days + 1):
+            d = (start + timedelta(days=i)).isoformat()
             cur.execute("INSERT OR IGNORE INTO records(user_id,date,vacation) VALUES(?,?,1)", (m.from_user.id, d))
         conn.commit(); conn.close()
         user_states.pop(m.from_user.id, None)
@@ -265,12 +277,12 @@ async def set_vacation(m: types.Message):
         return await m.answer("Неверный формат. Введите дд.мм–дд.мм или ❌ Отмена.", reply_markup=cancel_menu)
 
 @dp.message_handler(lambda m: m.text=='📊 Отчёт')
-async def show_report(m: types.Message): await m.answer("Выберите отчёт:", reply_markup=report_kb)
+async def show_report(m: types.Message):
+    await m.answer("Выберите отчёт:", reply_markup=report_kb)
 
 @dp.message_handler(lambda m: m.text=='🗓️ За неделю')
 async def report_week(m: types.Message):
-    uid = m.from_user.id; today = date.today()
-    monday = today - timedelta(days=today.weekday())
+    uid = m.from_user.id; today = date.today(); monday = today - timedelta(days=today.weekday())
     conn = sqlite3.connect("data.sqlite"); cur = conn.cursor()
     cur.execute("SELECT date,entry_time,exit_time,vacation FROM records WHERE user_id=? AND date>=?",
                 (uid, monday.isoformat(),))
@@ -279,12 +291,9 @@ async def report_week(m: types.Message):
     txt = "🗓️ Отчёт за неделю:\n"
     for d,e,x,v in rows:
         day = datetime.fromisoformat(d).strftime('%d.%m')
-        if v:
-            txt += f"{day} — 🏖️\n"
-        elif e and x:
-            txt += f"{day} {e}-{x}\n"
-        else:
-            txt += f"{day} — 🔘 {e or ''}\n"
+        if v: txt += f"{day} — 🏖️\n"
+        elif e and x: txt += f"{day} {e}-{x}\n"
+        else: txt += f"{day} — 🔘 {e or ''}\n"
     await m.answer(txt)
 
 @dp.message_handler(lambda m: m.text=='📅 За месяц')
@@ -298,12 +307,9 @@ async def report_month(m: types.Message):
     txt = "📅 Отчёт за месяц:\n"
     for d,e,x,v in rows:
         day = datetime.fromisoformat(d).strftime('%d.%m')
-        if v:
-            txt += f"{day} — 🏖️\n"
-        elif e and x:
-            txt += f"{day} {e}-{x}\n"
-        else:
-            txt += f"{day} — 🔘 {e or ''}\n"
+        if v: txt += f"{day} — 🏖️\n"
+        elif e and x: txt += f"{day} {e}-{x}\n"
+        else: txt += f"{day} — 🔘 {e or ''}\n"
     await m.answer(txt)
 
 if __name__ == '__main__':
