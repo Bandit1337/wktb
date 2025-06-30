@@ -535,7 +535,7 @@ async def analytics_handler(message: types.Message):
     exit_time = f"{avg_exit // 60:02}:{avg_exit % 60:02}" if avg_exit else "—"
 
     report = (
-        f"📈 *Аналитика за {MONTH_NAMES[now.month]}*\n\n"
+        f"📈 *Аналитика за {MONTHS_RU[now.month]}*\n\n"
         f"🔘 Смен: {total_days}\n"
         f"⏰ Средняя длительность: {avg_minutes // 60} ч {avg_minutes % 60} мин\n"
         f"🚪 Средний вход: {entry_time}\n"
