@@ -186,8 +186,9 @@ async def handle_entry(message: types.Message):
 
     shift = get_user_shift(user_id)
     if not shift:
-        await message.answer("⚠️ Не удалось определить смену.")
-        return
+        await message.answer("⚠️ Не удалось определить смену.\nПожалуйста, выбери её:",
+        reply_markup=shift_type_menu  # уже готовое меню с "Утренняя / Вечерняя"
+        )
 
     entry_time = datetime.strptime(shift['start'], "%H:%M").time()
     actual_entry = datetime.combine(date.today(), now.time())
