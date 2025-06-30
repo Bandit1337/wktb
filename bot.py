@@ -39,10 +39,10 @@ report_menu = ReplyKeyboardMarkup(resize_keyboard=True)
 report_menu.add(KeyboardButton("🗓️ За неделю"), KeyboardButton("📅 За месяц"))
 report_menu.add(KeyboardButton("❌ Отмена"))
 
-MONTHS_RU = {
-    "January": "Январь", "February": "Февраль", "March": "Март", "April": "Апрель",
-    "May": "Май", "June": "Июнь", "July": "Июль", "August": "Август",
-    "September": "Сентябрь", "October": "Октябрь", "November": "Ноябрь", "December": "Декабрь"
+MONTH_NAMES = {
+    1: "📅 Январь", 2: "📅 Февраль", 3: "📅 Март", 4: "📅 Апрель",
+    5: "📅 Май", 6: "📅 Июнь", 7: "📅 Июль", 8: "📅 Август",
+    9: "📅 Сентябрь", 10: "📅 Октябрь", 11: "📅 Ноябрь", 12: "📅 Декабрь"
 }
 
 # Смены с параметрами: (start_time, duration, is_evening)
@@ -535,7 +535,7 @@ async def analytics_handler(message: types.Message):
     exit_time = f"{avg_exit // 60:02}:{avg_exit % 60:02}" if avg_exit else "—"
 
     report = (
-        f"📈 *Аналитика за {MONTHS_RU[now.month]}*\n\n"
+        f"📈 *Аналитика за {MONTH_NAMES[now.month]}*\n\n"
         f"🔘 Смен: {total_days}\n"
         f"⏰ Средняя длительность: {avg_minutes // 60} ч {avg_minutes % 60} мин\n"
         f"🚪 Средний вход: {entry_time}\n"
